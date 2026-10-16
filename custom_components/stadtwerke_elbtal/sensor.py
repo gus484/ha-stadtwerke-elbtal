@@ -17,26 +17,26 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api.models import Meter, ReadingSource
-from .const import DOMAIN
-from .coordinator import ITCConfigEntry, ITCMeterCoordinator
+from .const import DOMAIN, MANUFACTURER
+from .coordinator import ElbtalConfigEntry, ElbtalMeterCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ITCConfigEntry,
+    entry: ElbtalConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up one reading sensor per electricity meter."""
     coordinator = entry.runtime_data.meter
-    meters = coordinator.data.power_meters if coordinator.data else []
+    meters = coordinator.data.meters if coordinator.data else []
     if not meters:
         _LOGGER.warning("no electricity meter found on this portal account")
-    async_add_entities(ITCMeterReadingSensor(coordinator, meter) for meter in meters)
+    async_add_entities(ElbtalMeterReadingSensor(coordinator, meter) for meter in meters)
 
 
-class ITCMeterReadingSensor(CoordinatorEntity[ITCMeterCoordinator], SensorEntity):
+class ElbtalMeterReadingSensor(CoordinatorEntity[ElbtalMeterCoordinator], SensorEntity):
     """The meter's current cumulative reading (Zählerstand)."""
 
     _attr_has_entity_name = True
@@ -45,7 +45,7 @@ class ITCMeterReadingSensor(CoordinatorEntity[ITCMeterCoordinator], SensorEntity
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
-    def __init__(self, coordinator: ITCMeterCoordinator, meter: Meter) -> None:
+    def __init__(self, coordinator: ElbtalMeterCoordinator, meter: Meter) -> None:
         super().__init__(coordinator)
         self._meter_no = meter.meter_no
         # Keyed on the meter number, not the config entry: re-adding the entry
@@ -54,7 +54,8 @@ class ITCMeterReadingSensor(CoordinatorEntity[ITCMeterCoordinator], SensorEntity
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, meter.meter_no)},
             name=f"Zähler {meter.meter_no}",
-            model=meter.media_type_label or None,
+            manufacturer=MANUFACTURER,
+            model="Stromzähler",
             serial_number=meter.meter_no,
         )
 

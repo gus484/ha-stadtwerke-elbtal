@@ -1,6 +1,6 @@
 {
-  "domain": "itc_powercommerce",
-  "name": "ITC PowerCommerce",
+  "domain": "stadtwerke_elbtal",
+  "name": "Stadtwerke Elbtal",
   "codeowners": ["@gus484"],
   "config_flow": true,
   "dependencies": ["recorder"],
@@ -8,6 +8,6 @@
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/gus484/ha-itc-powercommerce/issues",
-  "requirements": ["beautifulsoup4"],
-  "version": "0.1.0"
+  "requirements": [],
+  "version": "0.2.0"
 }

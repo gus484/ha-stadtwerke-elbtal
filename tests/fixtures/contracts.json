@@ -1,0 +1,33 @@
+{
+  "returnValue": {
+    "contractsAndOrders": [
+      {
+        "city": "Musterstadt",
+        "contractNumber": "000000000000-1",
+        "contractPartner": "Erika Musterfrau",
+        "hasRedispatchAdditionalAgreement": false,
+        "hasRLMMeter": false,
+        "hasTrancheProduct": false,
+        "houseNumber": "1",
+        "isPostingPermanentlyBlocked": false,
+        "marketIdentifier": "50000000000",
+        "medium": "Electricity",
+        "numberOfChildRecords": 0,
+        "postalCode": "01234",
+        "productName": "Mieterstrom",
+        "recordName": "LSVS000000000000-1",
+        "relatedObjectId": "810000000000001AAA",
+        "status": {
+          "color": "success",
+          "icon": "base-icon-check-solid",
+          "label": "In Belieferung"
+        },
+        "street": "Musterstraße",
+        "type": "ServicePointContract"
+      }
+    ],
+    "responseHasEntries": true,
+    "totalItems": 1
+  },
+  "cacheable": true
+}

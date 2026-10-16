@@ -1,7 +1,7 @@
-"""Parser tests — the early-warning system for portal markup changes.
+"""Parser tests — the early-warning system for portal changes.
 
-If the portal changes its number format, date format, or the meterDetails
-table structure, these tests fail first.
+If the portal changes the shape of its Apex answers, the page that carries
+the CSRF token, or the session servlet, these tests fail first.
 """
 
 from __future__ import annotations
@@ -11,101 +11,161 @@ from decimal import Decimal
 
 import pytest
 
-from api.exceptions import ParseError
+from api.exceptions import AuthError, ParseError
+from api.models import ReadingSource
 from api.parsing import (
-    is_login_page,
-    parse_german_date,
-    parse_german_decimal,
-    parse_latest_readings,
-    parse_meter_widget,
-    parse_reading_history,
+    loads,
+    parse_contracts,
+    parse_login_response,
+    parse_meter_readings,
+    parse_portal_user,
+    parse_reading_source,
+    parse_session_remaining,
 )
 
+from conftest import CONTRACT_ID, METER_NO, load, load_json
 
-class TestGermanDecimal:
-    @pytest.mark.parametrize(
-        "text,expected",
-        [
-            ("13.364 kWh", Decimal("13364")),
-            ("13.114,7 kWh", Decimal("13114.7")),
-            ("11.827 kWh", Decimal("11827")),
-            ("000013364,00", Decimal("13364.00")),
-            ("10.911,1", Decimal("10911.1")),
-            ("0", Decimal("0")),
-        ],
-    )
-    def test_parses(self, text: str, expected: Decimal) -> None:
-        assert parse_german_decimal(text) == expected
+HOST = "https://onlineservice.stadtwerke-elbtal.de"
 
-    def test_no_float_error_on_cumulative(self) -> None:
-        # Decimal keeps exact values that float would corrupt.
-        assert parse_german_decimal("13.114,7 kWh") == Decimal("13114.7")
 
-    def test_invalid_raises(self) -> None:
+class TestLoads:
+    def test_fractions_are_decimal(self) -> None:
+        # 13114.7 as a float is 13114.699999999999…; the reading must arrive exact.
+        assert loads('{"v": 13114.7}', what="t")["v"] == Decimal("13114.7")
+
+    def test_strips_the_anti_hijacking_guard(self) -> None:
+        assert loads('while(1);\n{"sr": 5}', what="t") == {"sr": 5}
+
+    def test_html_is_a_parse_error(self) -> None:
         with pytest.raises(ParseError):
-            parse_german_decimal("kWh")
+            loads("<html></html>", what="t")
 
 
-class TestGermanDate:
+class TestLogin:
+    def test_frontdoor_url(self) -> None:
+        url = parse_login_response(200, load_json("login_response.json"), HOST)
+        assert url.startswith(f"{HOST}/vforcesite/secur/frontdoor.jsp?")
+        assert "sid=" in url
+
+    def test_relative_frontdoor_url_is_made_absolute(self) -> None:
+        payload = {"returnValue": "/vforcesite/secur/frontdoor.jsp?sid=x"}
+        assert parse_login_response(200, payload, HOST) == (
+            f"{HOST}/vforcesite/secur/frontdoor.jsp?sid=x"
+        )
+
+    def test_rejected_login_is_an_auth_error(self) -> None:
+        payload = {"error": [{"message": "Ihr Anmeldeversuch ist fehlgeschlagen."}]}
+        with pytest.raises(AuthError):
+            parse_login_response(400, payload, HOST)
+
+    def test_invalid_apex_request_is_not_an_auth_error(self) -> None:
+        # Captured verbatim from the portal for a call it did not accept. On
+        # the login call it means the class moved — asking for the password
+        # again would only add failed logins.
+        payload = {"error": [{"message": "The Apex request is invalid."}]}
+        with pytest.raises(ParseError):
+            parse_login_response(400, payload, HOST)
+
+    def test_frontdoor_on_another_host_is_refused(self) -> None:
+        payload = {"returnValue": "https://evil.example/secur/frontdoor.jsp?sid=x"}
+        with pytest.raises(ParseError):
+            parse_login_response(200, payload, HOST)
+
+    def test_return_value_that_is_no_frontdoor_url(self) -> None:
+        with pytest.raises(ParseError):
+            parse_login_response(200, {"returnValue": None}, HOST)
+
+
+class TestPortalUser:
+    def test_logged_in_page_carries_the_csrf_token(self) -> None:
+        user = parse_portal_user(load("home.html"))
+        assert user.is_guest is False
+        assert user.csrf_token == "CSRF-TOKEN"
+
+    def test_login_page_is_a_guest(self) -> None:
+        user = parse_portal_user(load("login_page.html"))
+        assert user.is_guest is True
+        assert user.csrf_token is None
+
+    def test_page_without_user_module(self) -> None:
+        with pytest.raises(ParseError):
+            parse_portal_user("<html><body></body></html>")
+
+
+class TestSession:
+    def test_alive(self) -> None:
+        assert parse_session_remaining(load("session_alive.txt")) == 7198
+
+    def test_expired(self) -> None:
+        assert parse_session_remaining(load("session_expired.txt")) == -1
+
+
+class TestContracts:
     def test_parses(self) -> None:
-        assert parse_german_date("31.01.2026") == date(2026, 1, 31)
+        contracts, total = parse_contracts(load_json("contracts.json")["returnValue"])
+        assert total == 1
+        assert len(contracts) == 1
+        assert contracts[0].contract_id == CONTRACT_ID
+        assert contracts[0].medium == "Electricity"
+        assert contracts[0].product_name == "Mieterstrom"
 
-    def test_invalid_raises(self) -> None:
+    def test_unexpected_shape(self) -> None:
         with pytest.raises(ParseError):
-            parse_german_date("2026-01-31")
+            parse_contracts({"somethingElse": []})
 
 
-class TestLoginPageDetection:
-    def test_login_page_detected(self, login_page: str) -> None:
-        assert is_login_page(login_page) is True
+class TestMeterReadings:
+    @pytest.fixture
+    def pages(self, contract):
+        return parse_meter_readings(load_json("meter_readings.json")["returnValue"], contract)
 
-    def test_authed_page_not_login(self, meter_details: str, home_page: str) -> None:
-        assert is_login_page(meter_details) is False
-        assert is_login_page(home_page) is False
+    def test_meter(self, pages) -> None:
+        assert len(pages) == 1
+        meter = pages[0].meter
+        assert meter.meter_no == METER_NO
+        assert meter.contract_id == CONTRACT_ID
+        assert meter.medium == "Electricity"
+        assert meter.unit == "kWh"
+        assert pages[0].total == 50
 
+    def test_readings(self, pages) -> None:
+        readings = pages[0].readings
+        assert len(readings) == 18
+        newest = readings[0]
+        assert newest.reading_date == date(2026, 1, 31)
+        assert newest.value == Decimal("13364")
+        assert newest.unit == "kWh"
+        assert newest.register == "1-1:1.8.0"
+        assert newest.source is ReadingSource.READ
+        assert readings[1].value == Decimal("13114.7")
+        assert readings[-1].reading_date == date(2024, 7, 31)
 
-class TestMeterWidget:
-    def test_parse_meters(self, meter_widget: dict) -> None:
-        meters = parse_meter_widget(meter_widget)
-        assert len(meters) == 1
-        m = meters[0]
-        assert m.meter_no == "1LAB0000000001"
-        assert m.media_type == "POWER"
-        assert m.media_type_label == "Strom"
-        assert m.unit == "kWh"
+    def test_values_are_exact(self, pages) -> None:
+        for reading in pages[0].readings:
+            assert isinstance(reading.value, Decimal)
+            # Exactly one decimal place or none, as the portal sends them.
+            assert reading.value == reading.value.quantize(Decimal("0.1"))
 
-    def test_parse_latest_readings(self, meter_widget: dict) -> None:
-        readings = parse_latest_readings(meter_widget)
-        assert len(readings) == 1
-        r = readings[0]
-        assert r.meter_no == "1LAB0000000001"
-        assert r.reading_date == date(2026, 1, 31)
-        assert r.value == Decimal("13364.00")
-        assert r.unit == "kWh"
-
-    def test_missing_structure_raises(self) -> None:
+    def test_reading_without_value(self, contract) -> None:
+        value = load_json("meter_readings.json")["returnValue"]
+        value["meters"][0]["readings"][0]["readingValue"] = None
         with pytest.raises(ParseError):
-            parse_meter_widget({"unexpected": True})
+            parse_meter_readings(value, contract)
 
-
-class TestReadingHistory:
-    def test_parses_all_rows(self, meter_details: str) -> None:
-        readings = parse_reading_history(meter_details, "1LAB0000000001")
-        assert len(readings) == 12
-
-    def test_values_and_dates(self, meter_details: str) -> None:
-        readings = parse_reading_history(meter_details, "1LAB0000000001")
-        by_date = {r.reading_date: r for r in readings}
-        assert by_date[date(2026, 1, 31)].value == Decimal("13364")
-        assert by_date[date(2025, 12, 31)].value == Decimal("13114.7")
-        assert by_date[date(2025, 6, 20)].value == Decimal("11827")
-        assert all(r.unit == "kWh" for r in readings)
-        assert all(r.meter_no == "1LAB0000000001" for r in readings)
-
-    def test_login_page_raises(self, login_page: str) -> None:
+    def test_no_meters_key(self, contract) -> None:
         with pytest.raises(ParseError):
-            parse_reading_history(login_page, "1LAB0000000001")
+            parse_meter_readings({"malo": "x"}, contract)
 
-    def test_no_table_raises(self) -> None:
-        with pytest.raises(ParseError):
-            parse_reading_history("<html><body>nothing</body></html>", "X")
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Ablesung durch EVU", ReadingSource.READ),
+        ("Ablesung durch Kunde", ReadingSource.SELF_REPORTED),
+        ("Maschinelle Schätzung", ReadingSource.ESTIMATED),
+        ("Irgendwas Neues", ReadingSource.UNKNOWN),
+        (None, ReadingSource.UNKNOWN),
+    ],
+)
+def test_reading_source(text, expected) -> None:
+    assert parse_reading_source(text) is expected

@@ -2,219 +2,278 @@
 
 from __future__ import annotations
 
+import copy
+import json
 import re
-from datetime import date
-from decimal import Decimal
 
 import aiohttp
 import pytest
 from aioresponses import aioresponses
 from yarl import URL
 
-from api import AuthError, ITCPowerCommerceClient, ParseError
-from api.client import METER_WIDGET_VIEW
+from api import AuthError, ParseError, PortalClient, PortalError, SessionExpired
+from api.client import APEX_PATH, SESSION_TIME_PATH
 
-BASE = "https://onlineservice.stadtwerke-elbtal.de/powercommerce/swet/fo/portal"
+from conftest import CONTRACT_ID, METER_NO, load
 
-# meterWidget.json carries a query string, so match by prefix.
-WIDGET_RE = re.compile(re.escape(f"{BASE}/meterWidget.json") + r".*")
+HOST = "https://onlineservice.stadtwerke-elbtal.de"
+APEX_RE = re.compile(re.escape(f"{HOST}{APEX_PATH}") + r"\?.*")
+FRONTDOOR_RE = re.compile(re.escape(f"{HOST}/vforcesite/secur/frontdoor.jsp") + r"\?.*")
+SESSION_RE = re.compile(re.escape(f"{HOST}{SESSION_TIME_PATH}") + r"\?.*")
+
+LOGIN_REJECTED = {"error": [{"message": "Ihr Anmeldeversuch ist fehlgeschlagen."}]}
+INVALID_APEX = {"error": [{"message": "The Apex request is invalid."}]}
+
+
+def load_json(name: str):
+    """Fixture JSON for aioresponses to serve — floats are fine on this side."""
+    return json.loads(load(name))
+
+
+def mock_login(m: aioresponses, *, home: str | None = None) -> None:
+    """The four requests of a successful login, in order."""
+    m.get(f"{HOST}/login", body=load("login_page.html"), content_type="text/html")
+    m.post(APEX_RE, payload=load_json("login_response.json"))
+    m.get(FRONTDOOR_RE, body="<html></html>", content_type="text/html")
+    m.get(f"{HOST}/", body=home or load("home.html"), content_type="text/html")
+
+
+def apex_calls(m: aioresponses) -> list[tuple[URL, dict]]:
+    """Every Apex POST in the order sent, with its JSON body and headers."""
+    calls = []
+    for (method, url), requests in m.requests.items():
+        if method == "POST" and url.path == APEX_PATH:
+            calls.extend((url, r.kwargs) for r in requests)
+    return calls
+
+
+def readings_value(offset: int, size: int, total: int) -> dict:
+    """A slice of the captured readings page, as the portal would page it."""
+    value = copy.deepcopy(load_json("meter_readings.json")["returnValue"])
+    meter = value["meters"][0]
+    meter["readings"] = meter["readings"][offset : offset + size]
+    meter["offset"] = offset
+    meter["numberOfReadings"] = len(meter["readings"])
+    meter["totalNumberOfReadings"] = total
+    return {"returnValue": value}
 
 
 @pytest.fixture
-async def client() -> ITCPowerCommerceClient:
+async def session():
+    async with aiohttp.ClientSession() as session:
+        yield session
+
+
+@pytest.fixture
+def client(session) -> PortalClient:
     """A client on a caller-owned session, the way the integration builds it."""
-    async with aiohttp.ClientSession() as session:
-        yield ITCPowerCommerceClient("user", "secret", session)
+    return PortalClient("user@example.org", "secret", session)
 
 
-async def test_login_success(client, login_page, home_page) -> None:
+# -- login -----------------------------------------------------------------
+
+
+async def test_login_success(client) -> None:
     with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)  # 302 followed -> home
+        mock_login(m)
         await client.login()
     assert client.logged_in is True
 
 
-async def test_login_posts_only_the_three_observed_fields(
-    client, login_page, home_page
-) -> None:
-    """The captured POST carries exactly these fields — no CSRF, no hidden inputs."""
+async def test_login_posts_as_guest_with_the_observed_fields(client) -> None:
     with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
+        mock_login(m)
         await client.login()
-        request = m.requests[("POST", URL(f"{BASE}/loginProcess"))][-1]
-    body = request.kwargs["data"]
-    assert set(body) == {"login", "password", "twoFactorAuthenticationCode"}
-    assert body["login"] == "user"
-    assert body["password"] == "secret"
-    assert body["twoFactorAuthenticationCode"] == ""
+        [(url, kwargs)] = apex_calls(m)
+    assert url.query["asGuest"] == "true"
+    assert "CSRF-Token" not in kwargs["headers"]
+    body = kwargs["json"]
+    assert body["classname"] == "@udd/01pWz0000029p3P"
+    assert body["method"] == "login"
+    assert body["params"] == {
+        "username": "user@example.org",
+        "password": "secret",
+        "startUrl": "/",
+    }
 
 
-async def test_login_starts_from_an_empty_portal_cookie_jar(
-    login_page, home_page
-) -> None:
-    """A stale JSESSIONID must not survive into a new login.
-
-    Logging in on top of one made the portal serve a meterWidget.json without
-    meters and then reject the next login as bad credentials.
-    """
-    async with aiohttp.ClientSession() as session:
-        session.cookie_jar.update_cookies({"JSESSIONID": "stale"}, URL(BASE))
-        session.cookie_jar.update_cookies({"other": "keep"}, URL("https://example.org/"))
-        client = ITCPowerCommerceClient("user", "secret", session)
-        with aioresponses() as m:
-            m.get(f"{BASE}/start", body=login_page)
-            m.post(f"{BASE}/loginProcess", body=home_page)
-            await client.login()
-
-        assert "JSESSIONID" not in session.cookie_jar.filter_cookies(URL(BASE))
-        # Only the portal's cookies go; the jar is not the client's to wipe.
-        assert "other" in session.cookie_jar.filter_cookies(URL("https://example.org/"))
-    assert client.logged_in is True
-
-
-async def test_login_failure_raises(client, login_page) -> None:
+async def test_login_starts_from_an_empty_portal_cookie_jar(session) -> None:
+    """Leftover session cookies must not survive into a new login."""
+    session.cookie_jar.update_cookies({"sid": "stale"}, URL(HOST))
+    session.cookie_jar.update_cookies({"other": "keep"}, URL("https://example.org/"))
+    client = PortalClient("user", "secret", session)
     with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=login_page)  # re-rendered login = fail
+        mock_login(m)
+        await client.login()
+
+    assert "sid" not in session.cookie_jar.filter_cookies(URL(HOST))
+    # Only the portal's cookies go; the jar is not the client's to wipe.
+    assert "other" in session.cookie_jar.filter_cookies(URL("https://example.org/"))
+
+
+async def test_rejected_login_raises_auth_error(client) -> None:
+    # Stand-in, not a capture: no failed login was recorded, to keep the
+    # account clear of lock-relevant attempts. The Apex error envelope itself
+    # is the captured one.
+    with aioresponses() as m:
+        m.get(f"{HOST}/login", body=load("login_page.html"), content_type="text/html")
+        m.post(APEX_RE, status=400, payload=LOGIN_REJECTED)
         with pytest.raises(AuthError):
             await client.login()
+    assert client.logged_in is False
 
 
-async def test_get_meters(client, login_page, home_page, meter_widget_text) -> None:
+async def test_vanished_login_class_is_not_an_auth_error(client) -> None:
     with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(WIDGET_RE, body=meter_widget_text)
-        await client.login()
-        meters = await client.get_meters()
-    assert [x.meter_no for x in meters] == ["1LAB0000000001"]
-
-
-async def test_get_meters_and_readings_hits_the_portal_once(
-    client, login_page, home_page, meter_widget_text
-) -> None:
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(WIDGET_RE, body=meter_widget_text)
-        await client.login()
-        meters, readings = await client.get_meters_and_readings()
-        widget_calls = m.requests[("GET", URL(f"{BASE}/{METER_WIDGET_VIEW}"))]
-    assert len(widget_calls) == 1
-    assert [x.meter_no for x in meters] == ["1LAB0000000001"]
-    assert readings[0].value == Decimal("13364.00")
-
-
-async def test_get_readings(client, login_page, home_page, meter_details) -> None:
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=meter_details)
-        await client.login()
-        readings = await client.get_readings("1LAB0000000001")
-    assert len(readings) == 12
-    assert readings[0].value == Decimal("13364")
-
-
-async def test_get_readings_date_filter(
-    client, login_page, home_page, meter_details
-) -> None:
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=meter_details)
-        await client.login()
-        readings = await client.get_readings(
-            "1LAB0000000001", start=date(2025, 7, 1), end=date(2025, 12, 31)
-        )
-    dates = {r.reading_date for r in readings}
-    assert dates == {date(2025, 12, 31), date(2025, 9, 30), date(2025, 8, 31),
-                     date(2025, 7, 31)}
-
-
-async def test_session_expiry_triggers_single_relogin(
-    client, login_page, home_page, meter_details
-) -> None:
-    with aioresponses() as m:
-        # initial login
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        # first meterDetails request: session expired -> login page
-        m.get(f"{BASE}/meterDetails", body=login_page)
-        # re-login
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        # retry succeeds
-        m.get(f"{BASE}/meterDetails", body=meter_details)
-        await client.login()
-        readings = await client.get_readings("1LAB0000000001")
-    assert len(readings) == 12
-
-
-async def test_session_expiry_gives_up_after_one_retry(
-    client, login_page, home_page
-) -> None:
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        # meterDetails always returns login page (session never recovers)
-        m.get(f"{BASE}/meterDetails", body=login_page)
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=login_page)
-        await client.login()
-        with pytest.raises(AuthError):
-            await client.get_readings("1LAB0000000001")
-
-
-# Stand-in, not a capture. The expired-session response is known by its URL
-# (cockpitRedirect?loginWidgetOnly=true, HTTP 200) but its body has never been
-# recorded. All the test needs to pin down is the shape that broke production —
-# a page that is not the login page and carries no history table.
-NO_HISTORY_PAGE = "<html><body><div>Ihre Sitzung ist abgelaufen.</div></body></html>"
-
-
-async def test_missing_history_retries_on_a_fresh_login(
-    client, login_page, home_page, meter_details
-) -> None:
-    """The failure seen in production: expiry that does not look like expiry.
-
-    The portal drops the history table without rendering the login page, so
-    the expiry passes `is_login_page` unnoticed. Left alone this never
-    recovers, because the client goes on believing it is logged in.
-    """
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        # session is gone, but the response is not the login page
-        m.get(f"{BASE}/meterDetails", body=NO_HISTORY_PAGE)
-        # re-login
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=meter_details)
-        await client.login()
-        readings = await client.get_readings("1LAB0000000001")
-    assert len(readings) == 12
-
-
-async def test_missing_history_after_retry_is_a_parse_error_not_auth(
-    client, login_page, home_page
-) -> None:
-    """A history that stays empty must not trigger the reauth dialog.
-
-    ParseError reaches Home Assistant as UpdateFailed. AuthError would open
-    the reauth prompt and invite repeated logins against an account that is
-    fine — the portal locks accounts for that.
-    """
-    with aioresponses() as m:
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=NO_HISTORY_PAGE)
-        m.get(f"{BASE}/start", body=login_page)
-        m.post(f"{BASE}/loginProcess", body=home_page)
-        m.get(f"{BASE}/meterDetails", body=NO_HISTORY_PAGE)
-        await client.login()
+        m.get(f"{HOST}/login", body=load("login_page.html"), content_type="text/html")
+        m.post(APEX_RE, status=400, payload=INVALID_APEX)
         with pytest.raises(ParseError):
-            await client.get_readings("1LAB0000000001")
+            await client.login()
+
+
+async def test_accepted_login_without_session_is_not_an_auth_error(client) -> None:
+    """Credentials were fine; the portal just did not hand over a session."""
+    with aioresponses() as m:
+        mock_login(m, home=load("login_page.html"))
+        with pytest.raises(PortalError) as excinfo:
+            await client.login()
+    assert not isinstance(excinfo.value, AuthError)
+    assert client.logged_in is False
+
+
+# -- session ---------------------------------------------------------------
+
+
+async def test_ensure_session_logs_in_when_never_logged_in(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.async_ensure_session()
+    assert client.logged_in is True
+
+
+async def test_ensure_session_keeps_a_live_session(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.get(SESSION_RE, body=load("session_alive.txt"), content_type="application/json")
+        await client.async_ensure_session()
+        logins = len(apex_calls(m))
+    assert logins == 1
+
+
+async def test_ensure_session_logs_in_again_when_expired(client) -> None:
+    """Expiry is the normal case: polls are hours apart, the session lasts ~2 h."""
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.get(SESSION_RE, body=load("session_expired.txt"), content_type="application/json")
+        mock_login(m)
+        await client.async_ensure_session()
+        logins = len(apex_calls(m))
+    assert logins == 2
+
+
+# -- data ------------------------------------------------------------------
+
+
+async def test_get_contracts(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, payload=load_json("contracts.json"))
+        contracts = await client.get_contracts()
+        _, (url, kwargs) = apex_calls(m)
+    assert [c.contract_id for c in contracts] == [CONTRACT_ID]
+    assert url.query["asGuest"] == "false"
+    assert kwargs["headers"]["CSRF-Token"] == "CSRF-TOKEN"
+    assert kwargs["json"]["method"] == "loadOrderAndContractOverviewFiltered"
+
+
+async def test_get_contracts_pages_until_total(client) -> None:
+    entry = load_json("contracts.json")["returnValue"]["contractsAndOrders"][0]
+    page = [dict(entry, relatedObjectId=f"810{i:015d}") for i in range(5)]
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, payload={"returnValue": {"contractsAndOrders": page, "totalItems": 6}})
+        m.post(APEX_RE, payload={"returnValue": {
+            "contractsAndOrders": [dict(entry, relatedObjectId="810999")], "totalItems": 6}})
+        contracts = await client.get_contracts()
+        offsets = [k["json"]["params"]["parameters"]["offset"] for _, k in apex_calls(m)[1:]]
+    assert len(contracts) == 6
+    assert offsets == [0, 5]
+
+
+async def test_get_meters_and_recent(client, contract) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, payload=readings_value(0, 4, 50))
+        meters, recent = await client.get_meters_and_recent([contract])
+        _, (_, kwargs) = apex_calls(m)
+    assert [x.meter_no for x in meters] == [METER_NO]
+    assert len(recent) == 4
+    assert kwargs["json"]["params"]["recordId"] == CONTRACT_ID
+    assert kwargs["json"]["params"]["params"] == {"offset": 0, "numberOfItems": 4}
+
+
+async def test_get_readings_pages_through_the_history(client, contract) -> None:
+    meter_pages = readings_value(0, 1, 18)["returnValue"]
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, payload={"returnValue": meter_pages})
+        [meter], _ = await client.get_meters_and_recent([contract])
+        m.post(APEX_RE, payload=readings_value(0, 10, 18))
+        m.post(APEX_RE, payload=readings_value(10, 10, 18))
+        readings = await client.get_readings(meter)
+        offsets = [k["json"]["params"]["params"]["offset"] for _, k in apex_calls(m)[2:]]
+    assert len(readings) == 18
+    assert offsets == [0, 10]
+
+
+async def test_dead_session_on_a_data_call_relogs_once(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        # The dead-session answer of this endpoint is not captured; anything
+        # that is not JSON must be read as "session gone", not as data.
+        m.post(APEX_RE, status=401, body="<html></html>", content_type="text/html")
+        mock_login(m)
+        m.post(APEX_RE, payload=load_json("contracts.json"))
+        contracts = await client.get_contracts()
+        logins = [k for _, k in apex_calls(m) if k["json"]["method"] == "login"]
+    assert [c.contract_id for c in contracts] == [CONTRACT_ID]
+    assert len(logins) == 2
+
+
+async def test_session_that_stays_dead_is_not_an_auth_error(client) -> None:
+    """A fresh login succeeded, so the password is fine — no reauth dialog."""
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, status=401, body="<html></html>", content_type="text/html")
+        mock_login(m)
+        m.post(APEX_RE, status=401, body="<html></html>", content_type="text/html")
+        with pytest.raises(SessionExpired) as excinfo:
+            await client.get_contracts()
+    assert not isinstance(excinfo.value, AuthError)
+
+
+async def test_vanished_data_class_is_a_parse_error(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, status=400, payload=INVALID_APEX)
+        with pytest.raises(ParseError):
+            await client.get_contracts()
+
+
+async def test_server_error_is_transient(client) -> None:
+    with aioresponses() as m:
+        mock_login(m)
+        await client.login()
+        m.post(APEX_RE, status=503, body="", content_type="text/html")
+        with pytest.raises(PortalError) as excinfo:
+            await client.get_contracts()
+    assert not isinstance(excinfo.value, (AuthError, SessionExpired))

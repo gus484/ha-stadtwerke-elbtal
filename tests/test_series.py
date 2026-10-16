@@ -15,11 +15,10 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from api.models import Reading
-from api.parsing import parse_reading_history
 from series import build_series, reading_start
 
 BERLIN = ZoneInfo("Europe/Berlin")
-METER = "1LAB0000000001"
+METER = "1ABC0000000001"
 
 
 def reading(day: date, value: str) -> Reading:
@@ -71,12 +70,12 @@ class TestBaseline:
         assert points[0].sum == Decimal("188.4")
         assert points[0].state == Decimal("11099.5")
 
-    def test_moving_window_keeps_sums(self, meter_details: str) -> None:
+    def test_moving_window_keeps_sums(self, meter_history: list[Reading]) -> None:
         # The portal drops old months over time. A later import that no
         # longer sees the first reading must still write the same sums for
         # the rows both imports share — otherwise it overwrites stored rows
         # with shifted values and the sum jumps at the window edge.
-        history = parse_reading_history(meter_details, METER)
+        history = meter_history
         first = series(history)
         baseline = first[0].state - first[0].sum
 
@@ -113,15 +112,15 @@ class TestMonotonic:
 
 
 class TestFixtureHistory:
-    def test_full_history(self, meter_details: str) -> None:
-        points = series(parse_reading_history(meter_details, METER))
+    def test_full_history(self, meter_history: list[Reading]) -> None:
+        points = series(meter_history)
 
-        assert len(points) == 12
+        assert len(points) == 18
         starts = [p.start for p in points]
         assert starts == sorted(starts)
         assert all(s.minute == s.second == s.microsecond == 0 for s in starts)
         assert points[0].sum == 0
         sums = [p.sum for p in points]
         assert all(a <= b for a, b in zip(sums, sums[1:]))
-        # 31.01.2026 minus 31.01.2025, exactly — no float anywhere yet.
-        assert points[-1].sum == Decimal("13364") - Decimal("10911.1")
+        # 2026-01-31 minus 2024-07-31, exactly — no float anywhere yet.
+        assert points[-1].sum == Decimal("13364") - Decimal("9695.4")

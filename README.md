@@ -1,13 +1,13 @@
-# ITC PowerCommerce for Home Assistant
+# Stadtwerke Elbtal for Home Assistant
 
-Home Assistant integration for German utility customer portals built on the
-**ITC PowerCommerce** platform (ITC AG). It reads electricity meter readings from the
+Home Assistant integration for the **Stadtwerke Elbtal** customer portal
+(`onlineservice.stadtwerke-elbtal.de`). It reads electricity meter readings from the
 portal and imports them into the Energy Dashboard.
 
-The platform is used by a number of municipal utilities. Portal URLs follow the pattern
-`<host>/powercommerce/<tenant>/fo/portal/<view>`. The first supported tenant is
-Stadtwerke Elbtal (`swet`); other utilities on the same platform can be set up by
-entering host and tenant by hand.
+Up to version 0.1 this integration was called **ITC PowerCommerce** and talked to the
+portal the utility ran on that platform. In October 2026 Stadtwerke Elbtal moved its
+portal to Salesforce; version 0.2 follows it there and was renamed with it. See
+[Upgrading from ITC PowerCommerce](#upgrading-from-itc-powercommerce-01).
 
 ## What it does
 
@@ -18,19 +18,22 @@ entering host and tenant by hand.
   - `reading_date` — the date of the reading, not of the poll
   - `reading_source` — `read`, `estimated` or `self_reported`, where the portal
     discloses it
-- **History backfill** — the roughly 14 months of readings the portal keeps are
+- **History backfill** — every reading the portal keeps (several years' worth) is
   imported as an external statistic named **"Strom &lt;meter number&gt;"**
-  (`itc_powercommerce:<tenant>_<meter number>_energy`), so the Energy Dashboard
-  shows consumption from before the day you set the integration up. Readings that
-  later drop out of the portal's window stay in Home Assistant.
-- **Two polling rhythms** — the current reading comes from a small JSON endpoint and
-  is fetched every 12 hours; the history is a full page and is fetched once a day.
+  (`stadtwerke_elbtal:<meter number>_energy`), so the Energy Dashboard shows
+  consumption from before the day you set the integration up. Readings that later
+  drop out of the portal's window stay in Home Assistant.
+- **Two polling rhythms** — the current reading needs one short request per contract
+  and is fetched every 12 hours; the history pages through all readings and is
+  fetched once a day.
+- Only the consumption register (OBIS `1.8.0`) is used. On a bidirectional meter the
+  feed-in register is ignored rather than added to consumption.
 - Electricity only. Read-only — the integration never submits readings to the portal.
 
 ## Requirements
 
 - Home Assistant 2025.2 or newer, with the recorder enabled (it is by default)
-- A login for your utility's customer portal **without two-factor authentication**
+- A login for the Stadtwerke Elbtal customer portal
 
 ## Installation
 
@@ -39,26 +42,21 @@ entering host and tenant by hand.
 1. In HACS, open the menu (⋮) at the top right and choose **Custom repositories**.
 2. Enter `https://github.com/gus484/ha-itc-powercommerce`, pick the type
    **Integration**, and add it.
-3. Search for **ITC PowerCommerce** in HACS and download it.
+3. Search for **Stadtwerke Elbtal** in HACS and download it.
 4. Restart Home Assistant.
 
 ### Manual
 
-Copy `custom_components/itc_powercommerce/` from this repository into the
+Copy `custom_components/stadtwerke_elbtal/` from this repository into the
 `custom_components/` folder of your Home Assistant configuration directory, then
 restart Home Assistant.
 
 ## Configuration
 
-**Settings → Devices & services → Add integration → ITC PowerCommerce**
+**Settings → Devices & services → Add integration → Stadtwerke Elbtal**
 
-1. **Utility** — pick yours from the list. If it is not listed, choose
-   **Andere / Other** and enter host and tenant from your portal's URL. For
-   Stadtwerke Elbtal the URL is
-   `https://onlineservice.stadtwerke-elbtal.de/powercommerce/swet/fo/portal/`: the
-   part before `/powercommerce` is the host, the part after it (`swet`) the tenant.
-2. **Login** — the email address and password you use on the portal. They are checked
-   by an actual login before anything is saved. A meter can only be added once.
+Enter the email address and password you use on the portal. They are checked by an
+actual login before anything is saved. A meter can only be added once.
 
 ### Energy Dashboard
 
@@ -69,7 +67,7 @@ consumption twice.
 
 ### Options
 
-**Settings → Devices & services → ITC PowerCommerce → Configure**
+**Settings → Devices & services → Stadtwerke Elbtal → Configure**
 
 | Option | Default | Range |
 |---|---|---|
@@ -80,6 +78,21 @@ Saving reloads the integration. The portal updates readings monthly at best, so
 shorter intervals do not bring newer data. They do bring more logins, since the portal
 session usually expires between polls — and repeated failed logins can lock your
 portal account.
+
+### Upgrading from ITC PowerCommerce (0.1)
+
+The domain changed from `itc_powercommerce` to `stadtwerke_elbtal`, so Home
+Assistant treats 0.2 as a new integration. The old one stopped working with the
+portal move anyway.
+
+1. Remove the **ITC PowerCommerce** entry under **Settings → Devices & services**, and
+   delete `custom_components/itc_powercommerce/` (HACS: remove the old download).
+2. Install 0.2 and set it up as described above. The first history import fills the new
+   statistic with every reading the portal holds — further back than the old portal.
+3. In the Energy Dashboard, replace the old statistic with the new
+   **"Strom &lt;meter number&gt;"**. Keeping both counts the consumption twice.
+4. Optionally delete the old statistic `itc_powercommerce:swet_<meter number>_energy`
+   under **Developer tools → Statistics**.
 
 ### Re-authentication
 
@@ -107,8 +120,9 @@ the portal's website before retrying, so failed attempts do not add up to a lock
     looks too high and May too low.
   - Two readings in one month (for example a self-reported one plus the regular one)
     simply add up in that month.
-- **Two-factor authentication is not supported.** With 2FA enabled on the account,
-  setup fails with "Invalid credentials, or the portal requires a two-factor code."
+- The portal addresses its server-side functions by internal ids. If Stadtwerke
+  Elbtal redeploys the portal, those can change; the integration then logs a parse
+  error mentioning "The Apex request is invalid" until it is updated.
 - Electricity only. Gas, water and district heating meters on the same account are
   ignored.
 
@@ -118,9 +132,9 @@ the portal's website before retrying, so failed attempts do not add up to a lock
   with access to your configuration directory or an unencrypted backup can read your
   portal password.
 - **Diagnostics** (integration menu → *Download diagnostics*) are meant for bug
-  reports. Username, password, meter number, customer number, name, address and email
-  are redacted, and the statistic id is left out because it contains the meter
-  number. Look through the file before you post it anyway.
+  reports. Username, password, meter number, contract and market location ids, name,
+  address and email are redacted, and the statistic id is left out because it
+  contains the meter number. Look through the file before you post it anyway.
 
 ## Troubleshooting
 
@@ -130,11 +144,11 @@ Enable debug logging in `configuration.yaml` and restart:
 logger:
   default: warning
   logs:
-    custom_components.itc_powercommerce: debug
+    custom_components.stadtwerke_elbtal: debug
 ```
 
-If the portal changes its page layout, the history import fails with a parse error in
-the log while the current reading keeps working. Please open an issue with the log
+If the portal changes, the import fails with a parse error in the log. A failing
+history import leaves the current reading working. Please open an issue with the log
 lines and a diagnostics file.
 
 ## Development
@@ -146,7 +160,7 @@ python -m venv .venv
 ```
 
 The parser tests run against anonymized fixtures in `tests/fixtures/` and are the
-early-warning system for portal markup changes. CI runs `hassfest`, the HACS
+early-warning system for portal changes. CI runs `hassfest`, the HACS
 validation and `pytest` on every push and pull request, and weekly.
 
 ## License

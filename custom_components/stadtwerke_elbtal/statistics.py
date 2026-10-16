@@ -1,16 +1,17 @@
 """Backfill historical readings as external statistics.
 
-A normal sensor can only ever record the present, so the portal's ~14 months
-of monthly readings are written straight into the recorder's statistics
-tables via :func:`async_add_external_statistics`.
+A normal sensor can only ever record the present, so the portal's reading
+history — monthly readings reaching back several years — is written straight
+into the recorder's statistics tables via :func:`async_add_external_statistics`.
 
 The row rules — alignment, monotonic ``sum``, the zero baseline — live in
 :mod:`.series` so they are testable without Home Assistant. This module adds
 what needs the recorder: reading back the stored baseline and writing.
 
 ``Decimal`` all the way in, ``float`` only on the last line before handing a
-value to the recorder. The portal dates are bare ``DD.MM.YYYY``, so they are
-anchored at midnight in the *portal's* timezone, never in Home Assistant's.
+value to the recorder. The portal's reading dates are bare calendar days, so
+they are anchored at midnight in the *portal's* timezone, never in Home
+Assistant's.
 """
 
 from __future__ import annotations
@@ -41,13 +42,13 @@ _LOGGER = logging.getLogger(__name__)
 _METADATA_KEYS = frozenset(getattr(StatisticMetaData, "__annotations__", {}))
 
 
-def build_statistic_id(tenant: str, meter_no: str) -> str:
+def build_statistic_id(meter_no: str) -> str:
     """Return the external statistic id for a meter.
 
-    External ids carry the domain and a colon — ``itc_powercommerce:swet_…`` —
+    External ids carry the domain and a colon — ``stadtwerke_elbtal:…`` —
     which is what marks them as not belonging to any entity.
     """
-    return f"{DOMAIN}:{slugify(tenant)}_{slugify(meter_no)}_energy"
+    return f"{DOMAIN}:{slugify(meter_no)}_energy"
 
 
 async def _async_stored_baseline(
@@ -81,7 +82,6 @@ async def _async_stored_baseline(
 
 async def async_import_readings(
     hass: HomeAssistant,
-    tenant: str,
     meter_no: str,
     readings: list[Reading],
     *,
@@ -94,7 +94,7 @@ async def async_import_readings(
     rows, so re-running this with the full history is idempotent and needs no
     diffing — even after the portal's window has moved past the first import.
     """
-    statistic_id = build_statistic_id(tenant, meter_no)
+    statistic_id = build_statistic_id(meter_no)
 
     usable = [r for r in readings if r.unit == UnitOfEnergy.KILO_WATT_HOUR]
     if len(usable) != len(readings):

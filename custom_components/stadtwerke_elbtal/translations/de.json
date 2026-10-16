@@ -2,23 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Versorger auswählen",
-        "description": "Wähle deinen Versorger. Steht er nicht in der Liste, wähle \"Andere / Other\" und gib die Portaladresse selbst ein.",
-        "data": {
-          "utility": "Versorger"
-        }
-      },
-      "manual": {
-        "title": "Portaladresse",
-        "description": "Bei {example_name} lautet die Portal-URL {example_url}. Der Teil vor /powercommerce ist der Host ({example_host}), der Teil danach der Mandant ({example_tenant}). Trage dieselben beiden Teile aus der Portal-URL deines Versorgers ein.",
-        "data": {
-          "host": "Host",
-          "tenant": "Mandant"
-        }
-      },
-      "credentials": {
-        "title": "Portal-Anmeldung",
-        "description": "Deine Zugangsdaten für {host}. Sie werden mit einer echten Anmeldung geprüft.",
+        "title": "Kundenportal der Stadtwerke Elbtal",
+        "description": "Deine Zugangsdaten für das Kundenportal der Stadtwerke Elbtal. Sie werden mit einer echten Anmeldung geprüft.",
         "data": {
           "username": "E-Mail-Adresse",
           "password": "Passwort"
@@ -34,8 +19,8 @@
       }
     },
     "error": {
-      "invalid_auth": "Zugangsdaten falsch, oder das Portal verlangt einen Zwei-Faktor-Code.",
-      "cannot_connect": "Das Portal war nicht erreichbar.",
+      "invalid_auth": "Das Portal hat E-Mail-Adresse oder Passwort abgelehnt.",
+      "cannot_connect": "Das Portal war nicht erreichbar oder hat unerwartet geantwortet.",
       "no_meter": "Die Anmeldung hat geklappt, aber im Konto liegt kein Stromzähler.",
       "unknown": "Unerwarteter Fehler."
     },
@@ -48,7 +33,7 @@
     "step": {
       "init": {
         "title": "Abfrageintervalle",
-        "description": "Der aktuelle Zählerstand kommt aus einem kleinen JSON-Endpunkt; die Ablesehistorie ist eine ganze Seite und speist nur den Statistik-Import.",
+        "description": "Der aktuelle Zählerstand braucht eine kurze Abfrage pro Vertrag; die Ablesehistorie blättert durch alle Ablesungen im Portal und speist nur den Statistik-Import.",
         "data": {
           "meter_interval_hours": "Aktueller Zählerstand, alle ... Stunden",
           "history_interval_hours": "Ablesehistorie, alle ... Stunden"

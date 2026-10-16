@@ -9,11 +9,11 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from .const import REDACT_KEYS
-from .coordinator import ITCConfigEntry
+from .coordinator import ElbtalConfigEntry
 
 
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ITCConfigEntry
+    hass: HomeAssistant, entry: ElbtalConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry.
 
@@ -33,7 +33,6 @@ async def async_get_config_entry_diagnostics(
         },
         "portal": {
             "host": data.client.host,
-            "tenant": data.client.tenant,
             "logged_in": data.client.logged_in,
         },
         "meter_coordinator": {
@@ -51,10 +50,16 @@ async def async_get_config_entry_diagnostics(
         "history_coordinator": {
             "last_update_success": history.last_update_success,
             "update_interval": str(history.update_interval),
-            "reading_count": len(history.data or []),
-            "readings": [
-                async_redact_data(_reading_dict(r), REDACT_KEYS)
-                for r in (history.data or [])
+            # Keyed by position, not meter number — the key would leak it.
+            "meters": [
+                {
+                    "reading_count": len(readings),
+                    "readings": [
+                        async_redact_data(_reading_dict(r), REDACT_KEYS)
+                        for r in readings
+                    ],
+                }
+                for readings in (history.data or {}).values()
             ],
         },
     }
@@ -67,6 +72,6 @@ def _reading_dict(reading) -> dict[str, Any]:
         "reading_date": reading.reading_date.isoformat(),
         "value": str(reading.value),
         "unit": reading.unit,
-        "kind": reading.kind.value,
+        "register": reading.register,
         "source": reading.source.value,
     }

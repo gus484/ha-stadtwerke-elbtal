@@ -2,23 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Select your utility",
-        "description": "Pick your utility company. If it is not listed, choose \"Andere / Other\" and enter the portal address yourself.",
-        "data": {
-          "utility": "Utility"
-        }
-      },
-      "manual": {
-        "title": "Portal address",
-        "description": "For {example_name} the portal URL is {example_url}. The part before /powercommerce is the host ({example_host}), the part after it is the tenant ({example_tenant}). Enter the same two parts of your utility's portal URL.",
-        "data": {
-          "host": "Host",
-          "tenant": "Tenant"
-        }
-      },
-      "credentials": {
-        "title": "Portal login",
-        "description": "Your login for {host}. The credentials are verified by an actual login.",
+        "title": "Stadtwerke Elbtal customer portal",
+        "description": "Your login for the Stadtwerke Elbtal customer portal. The credentials are verified by an actual login.",
         "data": {
           "username": "Email address",
           "password": "Password"
@@ -34,8 +19,8 @@
       }
     },
     "error": {
-      "invalid_auth": "Invalid credentials, or the portal requires a two-factor code.",
-      "cannot_connect": "Could not reach the portal.",
+      "invalid_auth": "The portal rejected the email address or password.",
+      "cannot_connect": "Could not reach the portal, or it answered in an unexpected way.",
       "no_meter": "The login worked, but the account has no electricity meter.",
       "unknown": "Unexpected error."
     },
@@ -48,7 +33,7 @@
     "step": {
       "init": {
         "title": "Polling intervals",
-        "description": "The current reading is fetched from a small JSON endpoint; the reading history is a full page and only feeds the statistics backfill.",
+        "description": "The current reading needs one short request per contract; the reading history pages through every reading the portal holds and only feeds the statistics backfill.",
         "data": {
           "meter_interval_hours": "Current reading, every ... hours",
           "history_interval_hours": "Reading history, every ... hours"

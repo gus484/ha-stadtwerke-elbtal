@@ -2,8 +2,8 @@
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # The vendored client is imported as a top-level `api` package rather than as
-# `custom_components.itc_powercommerce.api`: the latter would execute the
+# `custom_components.stadtwerke_elbtal.api`: the latter would execute the
 # integration's __init__.py and drag Home Assistant into every test run. The
 # client knows nothing about HA, and the parser tests — the early warning for
 # portal markup changes — must stay runnable without it.
-pythonpath = [".", "custom_components/itc_powercommerce"]
+pythonpath = [".", "custom_components/stadtwerke_elbtal"]

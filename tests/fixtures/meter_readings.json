@@ -1,0 +1,314 @@
+{
+  "returnValue": {
+    "availableStatus": [
+      "Plausibel"
+    ],
+    "isIMSServicePoint": false,
+    "isPostingPermanentlyBlocked": false,
+    "isPostingTemporarilyBlocked": false,
+    "isRlmServicePoint": false,
+    "malo": "50000000000",
+    "meters": [
+      {
+        "deviceId": "000000000000000001",
+        "earliestPossibleReadingDate": "2026-02-01",
+        "numberOfReadings": 18,
+        "offset": 0,
+        "readings": [
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 249.3,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2026-01-31",
+            "readingDateTime": "2026-01-31T13:54:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 13364,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 643.6,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-12-31",
+            "readingDateTime": "2025-12-31T13:54:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 13114.7,
+            "reason": "Turnusablesung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 189,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-09-30",
+            "readingDateTime": "2025-09-30T11:50:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 12471.1,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 198.4,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-08-31",
+            "readingDateTime": "2025-08-31T09:47:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 12282.1,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 182.3,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-07-31",
+            "readingDateTime": "2025-07-31T10:18:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 12083.7,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 74.4,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-06-30",
+            "readingDateTime": "2025-06-30T08:06:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11901.4,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 224.7,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-06-20",
+            "readingDateTime": "2025-06-20T08:11:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11827,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 83.7,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-05-14",
+            "readingDateTime": "2025-05-14T12:16:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11602.3,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 202,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-04-30",
+            "readingDateTime": "2025-04-30T11:35:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11518.6,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 217.1,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-03-31",
+            "readingDateTime": "2025-03-31T10:24:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11316.6,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 188.4,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-02-28",
+            "readingDateTime": "2025-02-28T09:42:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 11099.5,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 191.5,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2025-01-31",
+            "readingDateTime": "2025-01-31T08:34:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 10911.1,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 230.3,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-12-31",
+            "readingDateTime": "2024-12-31T13:11:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 10719.6,
+            "reason": "Turnusablesung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 197.4,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-11-30",
+            "readingDateTime": "2024-11-30T13:10:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 10489.3,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 207,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-10-31",
+            "readingDateTime": "2024-10-31T08:48:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 10291.9,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 206.8,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-09-30",
+            "readingDateTime": "2024-09-30T10:31:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 10084.9,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 182.7,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-08-31",
+            "readingDateTime": "2024-08-31T08:08:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 9878.1,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          },
+          {
+            "consumptionUnit": "kWh",
+            "consumptionValue": 192.1,
+            "obis": "1-1:1.8.0",
+            "readingDate": "2024-07-31",
+            "readingDateTime": "2024-07-31T08:39:00.000Z",
+            "readingUnit": "KWH",
+            "readingValue": 9695.4,
+            "reason": "Zwischenablesung ohne Abrechnung",
+            "status": {
+              "apiName": "1",
+              "color": "success",
+              "label": "Plausibel"
+            },
+            "type": "Ablesung durch EVU"
+          }
+        ],
+        "serialNumber": "1ABC0000000001",
+        "totalNumberOfReadings": 50
+      }
+    ],
+    "robotronUrl": "https://energieportal.sachsenenergie.de/prime/charting?ml=50000000000&from=2026-01-01T00:00:00.000Z&to=2026-12-31T23:59:59.000Z&statistics=true"
+  },
+  "cacheable": true
+}
