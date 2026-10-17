@@ -30,7 +30,7 @@ from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util, slugify
 
-from .api.models import Reading
+from .api.models import Reading, mask_meter_no
 from .const import DOMAIN, PORTAL_TIME_ZONE
 from .series import build_series
 
@@ -95,21 +95,23 @@ async def async_import_readings(
     diffing — even after the portal's window has moved past the first import.
     """
     statistic_id = build_statistic_id(meter_no)
+    # The statistic id embeds the full meter number; logs get the short form.
+    label = f"meter {mask_meter_no(meter_no)}"
 
     usable = [r for r in readings if r.unit == UnitOfEnergy.KILO_WATT_HOUR]
     if len(usable) != len(readings):
         _LOGGER.debug(
             "%s: ignoring %d reading(s) not in kWh",
-            statistic_id,
+            label,
             len(readings) - len(usable),
         )
     if not usable:
-        _LOGGER.debug("%s: nothing to import", statistic_id)
+        _LOGGER.debug("%s: nothing to import", label)
         return 0
 
     tzinfo = await dt_util.async_get_time_zone(PORTAL_TIME_ZONE)
     baseline = await _async_stored_baseline(hass, statistic_id)
-    points = build_series(usable, tzinfo, baseline, label=statistic_id)
+    points = build_series(usable, tzinfo, baseline, label=label)
     if not points:
         return 0
     # Decimal -> float happens here and nowhere earlier.
@@ -147,7 +149,7 @@ async def async_import_readings(
     async_add_external_statistics(hass, metadata, rows)
     _LOGGER.debug(
         "%s: imported %d row(s), %s to %s, baseline %s",
-        statistic_id,
+        label,
         len(rows),
         rows[0]["start"],
         rows[-1]["start"],

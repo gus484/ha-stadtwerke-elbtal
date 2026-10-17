@@ -50,8 +50,8 @@ there is no host/tenant to make configurable any more.
 - **Readings**: `PortalMeterReadingController.callGetMeterReadingsWithParams` with
   `objectApiName: "ServiceContract"`, `recordId: <contract id>`,
   `params: {offset, numberOfItems}`. Returns `meters[]` with `serialNumber` (the meter
-  number, same as on the old portal), `totalNumberOfReadings` (50 in the capture,
-  back to 2022), and `readings[]` newest first: `readingDate` (ISO date),
+  number, same as on the old portal), `totalNumberOfReadings` (50 for the test
+  account, back to the contract start on 2020-01-13), and `readings[]` newest first: `readingDate` (ISO date),
   `readingValue` (JSON number), `readingUnit` (`KWH`), `obis` (`1-1:1.8.0`), `type`
   (`Ablesung durch EVU`), `reason`, `status`.
 - **Session liveness**: `GET /sfsites/c/_nc_external/system/security/session/SessionTimeServlet`

@@ -22,7 +22,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import PortalClient
 from .api.exceptions import AuthError, PortalError
-from .api.models import Contract, Meter, Reading
+from .api.models import Contract, Meter, Reading, mask_meter_no
 from .const import (
     CONF_HISTORY_INTERVAL,
     CONF_METER_INTERVAL,
@@ -202,7 +202,7 @@ class ElbtalHistoryCoordinator(ElbtalBaseCoordinator[dict[str, list[Reading]]]):
             if len(consumption) != len(readings):
                 _LOGGER.debug(
                     "meter %s: ignoring %d reading(s) of other registers",
-                    meter.meter_no,
+                    mask_meter_no(meter.meter_no),
                     len(readings) - len(consumption),
                 )
             await async_import_readings(

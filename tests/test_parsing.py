@@ -12,7 +12,7 @@ from decimal import Decimal
 import pytest
 
 from api.exceptions import AuthError, ParseError
-from api.models import ReadingSource
+from api.models import ReadingSource, mask_meter_no
 from api.parsing import (
     loads,
     parse_contracts,
@@ -169,3 +169,8 @@ class TestMeterReadings:
 )
 def test_reading_source(text, expected) -> None:
     assert parse_reading_source(text) is expected
+
+
+def test_mask_meter_no() -> None:
+    assert mask_meter_no(METER_NO) == "…0001"
+    assert METER_NO not in mask_meter_no(METER_NO)

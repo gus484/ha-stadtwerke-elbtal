@@ -8,6 +8,15 @@ from decimal import Decimal
 from enum import Enum
 
 
+def mask_meter_no(meter_no: str) -> str:
+    """The meter number shortened for logs, e.g. ``…3491``.
+
+    Debug logs end up pasted into public issues. The last four digits still
+    tell several meters apart without identifying the installation.
+    """
+    return f"…{meter_no[-4:]}"
+
+
 class ReadingSource(str, Enum):
     """How the reading was obtained, from the portal's ``type`` field."""
 
