@@ -4,10 +4,10 @@
   "codeowners": ["@gus484"],
   "config_flow": true,
   "dependencies": ["recorder"],
-  "documentation": "https://github.com/gus484/ha-itc-powercommerce",
+  "documentation": "https://github.com/gus484/ha-stadtwerke-elbtal",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/gus484/ha-itc-powercommerce/issues",
+  "issue_tracker": "https://github.com/gus484/ha-stadtwerke-elbtal/issues",
   "requirements": [],
   "version": "0.2.0"
 }

@@ -124,8 +124,9 @@ Diagnostics in the integration must use `async_redact_data` over `REDACT_KEYS` i
 
 HACS expects the integration at `custom_components/stadtwerke_elbtal/` in the repo
 root. Domain is `stadtwerke_elbtal`. (It was `itc_powercommerce` until 0.1.0; the
-platform name stopped fitting when the utility left ITC.) The GitHub repository is
-still `gus484/ha-itc-powercommerce`.
+platform name stopped fitting when the utility left ITC.) The GitHub repository was
+renamed with it on 2026-10-17, from `gus484/ha-itc-powercommerce` to
+`gus484/ha-stadtwerke-elbtal`; GitHub redirects the old URL.
 
 The client is vendored into the integration directory rather than published to PyPI.
 Keep the module boundary clean (client knows nothing about Home Assistant) so

@@ -40,7 +40,7 @@ portal to Salesforce; version 0.2 follows it there and was renamed with it. See
 ### HACS (recommended)
 
 1. In HACS, open the menu (⋮) at the top right and choose **Custom repositories**.
-2. Enter `https://github.com/gus484/ha-itc-powercommerce`, pick the type
+2. Enter `https://github.com/gus484/ha-stadtwerke-elbtal`, pick the type
    **Integration**, and add it.
 3. Search for **Stadtwerke Elbtal** in HACS and download it.
 4. Restart Home Assistant.
@@ -87,6 +87,9 @@ portal move anyway.
 
 1. Remove the **ITC PowerCommerce** entry under **Settings → Devices & services**, and
    delete `custom_components/itc_powercommerce/` (HACS: remove the old download).
+   The repository was renamed as well: in HACS, replace the custom repository
+   `https://github.com/gus484/ha-itc-powercommerce` with
+   `https://github.com/gus484/ha-stadtwerke-elbtal`. The old URL still redirects.
 2. Install 0.2 and set it up as described above. The first history import fills the new
    statistic with every reading the portal holds — further back than the old portal.
 3. In the Energy Dashboard, replace the old statistic with the new
